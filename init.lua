@@ -3,13 +3,12 @@ local ICONS             = require('mq.Icons')
 local ImGui             = require('ImGui')
 local vendorInv         = require('vendor_inv')
 local actors            = require 'actors'
+local animItems         = mq.FindTextureAnimation("A_DragItem")
 
 local openGUI           = true
 local shouldDrawGUI     = false
 
 local terminate         = false
-
-local animItems         = mq.FindTextureAnimation("A_DragItem")
 
 local sourceIndex       = 1
 local sellAllJunk       = false
