@@ -268,6 +268,7 @@ while not terminate do
             if settings.Junk[itemStartString] and settings.Junk[itemStartString][item.Item.Name()] == true then
                 sellItem(item)
                 mq.delay(50)
+                vendorInv:getItems(sourceIndex)
             end
         end
 
