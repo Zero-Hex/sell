@@ -1,6 +1,7 @@
 local mq                = require('mq')
-local ICONS             = require('mq.Icons')
 local ImGui             = require('ImGui')
+local Icons             = require('mq.Icons')
+
 local vendorInv         = require('vendor_inv')
 local actors            = require 'actors'
 local animItems         = mq.FindTextureAnimation("A_DragItem")
@@ -72,12 +73,11 @@ local function sellItem(item)
     if item and item.Item then
         Output("\aySelling item: \at%s\ay in Slot\aw(\am%d\aw)\ay, Slot2\aw(\am%d\aw)", item.Item.Name(), item.Item.ItemSlot(), item.Item.ItemSlot2())
 
-        mq.cmd("/itemnotify in " ..
-            vendorInv.toPack(item.Item.ItemSlot()) ..
-            " " .. vendorInv.toBagSlot(item["Item"].ItemSlot2()) .. " leftmouseup")
-
         repeat
-            mq.delay(10)
+            mq.cmd("/itemnotify in " ..
+                vendorInv.toPack(item.Item.ItemSlot()) ..
+                " " .. vendorInv.toBagSlot(item["Item"].ItemSlot2()) .. " leftmouseup")
+            mq.delay(500)
         until mq.TLO.Window("MerchantWnd").Child("MW_Sell_Button")() == "TRUE" and mq.TLO.Window("MerchantWnd").Child("MW_Sell_Button").Enabled()
 
         repeat
@@ -130,7 +130,7 @@ local function renderItems()
                 ImGui.PushStyleColor(ImGuiCol.Text, 0.8, 0.02, 0.02, 1.0)
             end
             ImGui.PushID("#_btn_" .. tostring(idx))
-            if ImGui.Selectable(ICONS.FA_TRASH_O) then
+            if ImGui.Selectable(Icons.FA_TRASH_O) then
                 settings.Junk[itemStartString][item.Item.Name()] = settings.Junk[itemStartString][item.Item.Name()] == nil and true or
                     not settings.Junk[itemStartString][item.Item.Name()]
                 Output("\awToggled %s\aw for item: \at%s", settings.Junk[itemStartString][item.Item.Name()] and "\arJunk" or "\agNot-Junk", item.Item.Name())
@@ -139,7 +139,7 @@ local function renderItems()
             ImGui.PopID()
             ImGui.PopStyleColor()
             ImGui.TableNextColumn()
-            if ImGui.Selectable(ICONS.MD_MONETIZATION_ON) then
+            if ImGui.Selectable(Icons.MD_MONETIZATION_ON) then
                 vendItem = item
             end
             ImGui.PopID()
@@ -187,7 +187,7 @@ local function vendorGUI()
 
             ImGui.SameLine()
 
-            if ImGui.SmallButton(ICONS.MD_REFRESH) then
+            if ImGui.SmallButton(Icons.MD_REFRESH) then
                 vendorInv:createContainerInventory()
                 vendorInv:getItems(sourceIndex)
             end
