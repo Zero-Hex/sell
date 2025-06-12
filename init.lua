@@ -84,7 +84,8 @@ local function sellItem(item)
         repeat
             mq.delay(500)
             if mq.TLO.Window("MerchantWnd").Child("MW_Sell_Button").Enabled() then
-                mq.cmd("/shift /notify MerchantWnd MW_Send_Button leftmouseup")
+                Output("Pushign sell")
+                mq.cmd("/shift /notify MerchantWnd MW_Sell_Button leftmouseup")
             end
         until mq.TLO.Window("MerchantWnd").Child("MW_Sell_Button")() ~= "TRUE"
 
