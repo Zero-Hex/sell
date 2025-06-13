@@ -89,6 +89,7 @@ local function sellItem(item)
             mq.delay(500)
             retries = retries - 1
             if retries < 0 then return end
+            if not openGUI then return end
         until mq.TLO.Window("MerchantWnd").Child("MW_Sell_Button")() == "TRUE" and mq.TLO.Window("MerchantWnd").Child("MW_Sell_Button").Enabled()
 
         retries = 15
@@ -100,6 +101,7 @@ local function sellItem(item)
             end
             retries = retries - 1
             if retries < 0 then return end
+            if not openGUI then return end
         until mq.TLO.Window("MerchantWnd").Child("MW_Sell_Button")() ~= "TRUE"
 
         Output("\agDone selling...")
@@ -319,6 +321,8 @@ while not terminate do
                 mq.delay(50)
                 vendorInv:getItems(sourceIndex)
             end
+
+            if not openGUI then return end
         end
 
         Output("\amRefreshing inv...")
