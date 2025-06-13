@@ -1,36 +1,43 @@
-local mq                = require('mq')
-local ImGui             = require('ImGui')
-local Icons             = require('mq.Icons')
+local mq             = require('mq')
+local ImGui          = require('ImGui')
+local Icons          = require('mq.Icons')
 
-local vendorInv         = require('vendor_inv')
-local actors            = require 'actors'
-local animItems         = mq.FindTextureAnimation("A_DragItem")
+local vendorInv      = require('vendor_inv')
+local actors         = require 'actors'
+local animItems      = mq.FindTextureAnimation("A_DragItem")
 
-local openGUI           = true
-local shouldDrawGUI     = false
+local openGUI        = true
+local shouldDrawGUI  = false
 
-local terminate         = false
+local terminate      = false
 
-local sourceIndex       = 1
-local sellAllJunk       = false
-local vendItem          = nil
+local sourceIndex    = 1
+local sellAllJunk    = false
+local vendItem       = nil
+local showHidden     = false
 
-local ColumnID_ItemIcon = 0
-local ColumnID_Item     = 1
-local ColumnID_Junk     = 2
-local ColumnID_Sell     = 3
-local ColumnID_LAST     = ColumnID_Sell + 1
-local settings_file     = mq.configDir .. "/vendor.lua"
-local custom_sources    = mq.configDir .. "/vendor_sources.lua"
+local settings_file  = mq.configDir .. "/vendor.lua"
+local custom_sources = mq.configDir .. "/vendor_sources.lua"
 
-local settings          = {}
+local settings       = {}
 
-local Output            = function(msg, ...)
+local Output         = function(msg, ...)
     local formatted = msg
     if ... then
         formatted = string.format(msg, ...)
     end
     printf('\aw[' .. mq.TLO.Time() .. '] [\aoDerple\'s Vendor Helper\aw] ::\a-t %s', formatted)
+end
+
+function Tooltip(desc)
+    ImGui.SameLine()
+    if ImGui.IsItemHovered() then
+        ImGui.BeginTooltip()
+        ImGui.PushTextWrapPos(ImGui.GetFontSize() * 25.0)
+        ImGui.Text(desc)
+        ImGui.PopTextWrapPos()
+        ImGui.EndTooltip()
+    end
 end
 
 local function SaveSettings()
@@ -49,6 +56,7 @@ local function LoadSettings()
     end
 
     settings.Junk = settings.Junk or {}
+    settings.Hide = settings.Hide or {}
 
     local vendorSources = {}
     local config, err = loadfile(custom_sources)
@@ -73,19 +81,25 @@ local function sellItem(item)
     if item and item.Item then
         Output("\aySelling item: \at%s\ay in Slot\aw(\am%d\aw)\ay, Slot2\aw(\am%d\aw)", item.Item.Name(), item.Item.ItemSlot(), item.Item.ItemSlot2())
 
+        local retries = 15
         repeat
             mq.cmd("/itemnotify in " ..
                 vendorInv.toPack(item.Item.ItemSlot()) ..
                 " " .. vendorInv.toBagSlot(item["Item"].ItemSlot2()) .. " leftmouseup")
             mq.delay(500)
+            retries = retries - 1
+            if retries < 0 then return end
         until mq.TLO.Window("MerchantWnd").Child("MW_Sell_Button")() == "TRUE" and mq.TLO.Window("MerchantWnd").Child("MW_Sell_Button").Enabled()
 
+        retries = 15
         repeat
             mq.delay(500)
             if mq.TLO.Window("MerchantWnd").Child("MW_Sell_Button").Enabled() then
                 Output("Pushign sell")
                 mq.cmd("/shift /notify MerchantWnd MW_Sell_Button leftmouseup")
             end
+            retries = retries - 1
+            if retries < 0 then return end
         until mq.TLO.Window("MerchantWnd").Child("MW_Sell_Button")() ~= "TRUE"
 
         Output("\agDone selling...")
@@ -94,55 +108,81 @@ local function sellItem(item)
     end
 end
 
+-- default false
+local function IsHidden(itemName)
+    local itemStartString = itemName:sub(1, 1)
+    return settings.Hide[itemStartString] and settings.Hide[itemStartString][itemName] == true
+end
+
+-- default false
+local function IsJunk(itemName)
+    local itemStartString = itemName:sub(1, 1)
+    return settings.Junk[itemStartString] and settings.Junk[itemStartString][itemName] == true
+end
+
 local function renderItems()
-    if ImGui.BeginTable("BagItemList", ColumnID_LAST, bit32.bor(ImGuiTableFlags.Resizable, ImGuiTableFlags.Borders)) then
+    if ImGui.BeginTable("BagItemList", 5, bit32.bor(ImGuiTableFlags.Resizable, ImGuiTableFlags.Borders)) then
         ImGui.PushStyleColor(ImGuiCol.Text, 0.8, 0, 1.0, 1)
-        ImGui.TableSetupColumn('Icon', bit32.bor(ImGuiTableColumnFlags.NoSort, ImGuiTableColumnFlags.WidthFixed), 20.0,
-            ColumnID_ItemIcon)
+        ImGui.TableSetupColumn('Icon', bit32.bor(ImGuiTableColumnFlags.NoSort, ImGuiTableColumnFlags.WidthFixed), 20.0)
         ImGui.TableSetupColumn('Item',
             bit32.bor(ImGuiTableColumnFlags.NoSort, ImGuiTableColumnFlags.PreferSortDescending,
                 ImGuiTableColumnFlags.WidthStretch),
-            150.0, ColumnID_Item)
-        ImGui.TableSetupColumn('Junk', bit32.bor(ImGuiTableColumnFlags.NoSort, ImGuiTableColumnFlags.WidthFixed), 20.0,
-            ColumnID_Junk)
-        ImGui.TableSetupColumn('Sell', bit32.bor(ImGuiTableColumnFlags.NoSort, ImGuiTableColumnFlags.WidthFixed), 20.0,
-            ColumnID_Sell)
+            150.0)
+        ImGui.TableSetupColumn('Junk', bit32.bor(ImGuiTableColumnFlags.NoSort, ImGuiTableColumnFlags.WidthFixed), 20.0)
+        ImGui.TableSetupColumn('Sell', bit32.bor(ImGuiTableColumnFlags.NoSort, ImGuiTableColumnFlags.WidthFixed), 20.0)
+        ImGui.TableSetupColumn('Hide', bit32.bor(ImGuiTableColumnFlags.NoSort, ImGuiTableColumnFlags.WidthFixed), 20.0)
         ImGui.PopStyleColor()
         ImGui.TableHeadersRow()
 
         for idx, item in ipairs(vendorInv.items) do
             local itemStartString = item.Item.Name():sub(1, 1)
             settings.Junk[itemStartString] = settings.Junk[itemStartString] or {}
+            settings.Hide[itemStartString] = settings.Hide[itemStartString] or {}
 
-            ImGui.PushID("#_itm_" .. tostring(idx))
-            local currentItem = item.Item
-            ImGui.TableNextColumn()
-            animItems:SetTextureCell((tonumber(currentItem.Icon()) or 500) - 500)
-            ImGui.DrawTextureAnimation(animItems, 20, 20)
-            ImGui.TableNextColumn()
-            if ImGui.Selectable(currentItem.Name(), false, 0) then
-                currentItem.Inspect()
+            if not IsHidden(item.Item.Name()) or showHidden then
+                ImGui.PushID("#_itm_" .. tostring(idx))
+                local currentItem = item.Item
+                ImGui.TableNextColumn()
+                animItems:SetTextureCell((tonumber(currentItem.Icon()) or 500) - 500)
+                ImGui.DrawTextureAnimation(animItems, 20, 20)
+                ImGui.TableNextColumn()
+                if ImGui.Selectable(currentItem.Name(), false, 0) then
+                    currentItem.Inspect()
+                end
+                ImGui.TableNextColumn()
+                if IsJunk(item.Item.Name()) then
+                    ImGui.PushStyleColor(ImGuiCol.Text, 0.02, 0.8, 0.02, 1.0)
+                else
+                    ImGui.PushStyleColor(ImGuiCol.Text, 0.8, 0.02, 0.02, 1.0)
+                end
+                ImGui.PushID("#_btn_jnk" .. tostring(idx))
+                if ImGui.Selectable(Icons.FA_TRASH_O) then
+                    settings.Junk[itemStartString][item.Item.Name()] = not IsJunk(item.Item.Name())
+                    Output("\awToggled %s\aw for item: \at%s", IsJunk(item.Item.Name()) and "\arJunk" or "\agNot-Junk", item.Item.Name())
+                    SaveSettings()
+                end
+                ImGui.PopID()
+                ImGui.PopStyleColor()
+                ImGui.TableNextColumn()
+                if ImGui.Selectable(Icons.MD_MONETIZATION_ON) then
+                    vendItem = item
+                end
+                ImGui.TableNextColumn()
+                if not IsHidden(item.Item.Name()) then
+                    ImGui.PushStyleColor(ImGuiCol.Text, 0.02, 0.8, 0.02, 1.0)
+                else
+                    ImGui.PushStyleColor(ImGuiCol.Text, 0.8, 0.02, 0.02, 1.0)
+                end
+                ImGui.PushID("#_btn_hide" .. tostring(idx))
+                if ImGui.Selectable(IsHidden(item.Item.Name()) and Icons.FA_EYE or Icons.FA_EYE_SLASH) then
+                    settings.Hide[itemStartString][item.Item.Name()] = not IsHidden(item.Item.Name())
+                    Output("\awToggled %s\aw for item: \at%s", IsHidden(item.Item.Name()) and "\arHide" or "\agShow", item.Item.Name())
+                    SaveSettings()
+                end
+                ImGui.PopID()
+                ImGui.PopStyleColor()
+                ImGui.PopID()
             end
-            ImGui.TableNextColumn()
-            if settings.Junk[itemStartString][item.Item.Name()] == true then
-                ImGui.PushStyleColor(ImGuiCol.Text, 0.02, 0.8, 0.02, 1.0)
-            else
-                ImGui.PushStyleColor(ImGuiCol.Text, 0.8, 0.02, 0.02, 1.0)
-            end
-            ImGui.PushID("#_btn_" .. tostring(idx))
-            if ImGui.Selectable(Icons.FA_TRASH_O) then
-                settings.Junk[itemStartString][item.Item.Name()] = settings.Junk[itemStartString][item.Item.Name()] == nil and true or
-                    not settings.Junk[itemStartString][item.Item.Name()]
-                Output("\awToggled %s\aw for item: \at%s", settings.Junk[itemStartString][item.Item.Name()] and "\arJunk" or "\agNot-Junk", item.Item.Name())
-                SaveSettings()
-            end
-            ImGui.PopID()
-            ImGui.PopStyleColor()
-            ImGui.TableNextColumn()
-            if ImGui.Selectable(Icons.MD_MONETIZATION_ON) then
-                vendItem = item
-            end
-            ImGui.PopID()
         end
 
         ImGui.EndTable()
@@ -197,10 +237,19 @@ local function vendorGUI()
             if ImGui.SmallButton("Sell Junk") then
                 sellAllJunk = true
             end
+            Tooltip("Sell all junk items")
 
+            ImGui.SameLine()
+
+            if ImGui.SmallButton(showHidden and Icons.FA_EYE or Icons.FA_EYE_SLASH) then
+                showHidden = not showHidden
+            end
+            Tooltip("Toggle showing hidden items")
+
+            ImGui.NewLine()
             ImGui.Separator()
 
-            ImGui.BeginChild("##VendorItems", -1, -1)
+            ImGui.BeginChild("##VendorItems", -1, -1, ImGuiChildFlags.None, ImGuiWindowFlags.AlwaysVerticalScrollbar)
             renderItems()
             ImGui.EndChild()
 
@@ -228,7 +277,7 @@ LoadSettings()
 vendorInv:createContainerInventory()
 vendorInv:getItems(sourceIndex)
 
-Output("\aw>>> \ayDerple's Vendor tool loaded! Use \at/vendor\ay to open UI!")
+Output("\aw>>> \ayDerple's Vendor tool loaded! UI will auto show when you open a Merchant Window. Use \at/vendor\ay to toggle the UI!")
 
 -- Global Messaging callback
 ---@diagnostic disable-next-line: unused-local
@@ -263,9 +312,9 @@ while not terminate do
     end
 
     if sellAllJunk then
-        for _, item in ipairs(vendorInv.items) do
-            local itemStartString = item.Item.Name():sub(1, 1)
-            if settings.Junk[itemStartString] and settings.Junk[itemStartString][item.Item.Name()] == true then
+        local itemsToSell = vendorInv.items
+        for _, item in ipairs(itemsToSell) do
+            if IsJunk(item.Item.Name()) then
                 sellItem(item)
                 mq.delay(50)
                 vendorInv:getItems(sourceIndex)

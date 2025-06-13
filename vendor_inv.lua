@@ -122,17 +122,16 @@ function vendor_inv:getItems(index)
     if data.filter ~= nil then
         self:getFilteredItems(data.filter)
     else
-        self.items = {}
+        local itemTable = {}
         local slot = data.slot
         for j = 1, (slot.Container()), 1 do
             if (slot.Item(j)() and not slot.Item(j).NoDrop() and not slot.Item(j).NoRent()) then
-                table.insert(self.items, { Item = slot.Item(j), })
+                table.insert(itemTable, { Item = slot.Item(j), })
                 printf("Adding item %s to send list", slot.Item(j).Name())
             end
         end
+        self.items = itemTable
     end
-
-
 
     self.currentSendItemIdx = 0
 end
