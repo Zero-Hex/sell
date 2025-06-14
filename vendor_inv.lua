@@ -55,17 +55,19 @@ function vendor_inv:new(additionalSource)
 end
 
 function vendor_inv:createContainerInventory()
-    self.sendSources = {}
-    for _, v in ipairs(self.genericSources) do table.insert(self.sendSources, v) end
-    for _, v in ipairs(self.customSources) do table.insert(self.sendSources, v) end
+    local newSendSources = {}
+    for _, v in ipairs(self.genericSources) do table.insert(newSendSources, v) end
+    for _, v in ipairs(self.customSources) do table.insert(newSendSources, v) end
 
     for i = 23, 34, 1 do
         local slot = mq.TLO.Me.Inventory(i)
         if slot.Container() and slot.Container() > 0 then
             local bagName = string.format("%s (%d)", slot.Name(), slot.ItemSlot() - inventoryOffset)
-            table.insert(self.sendSources, { name = bagName, slot = slot, })
+            table.insert(newSendSources, { name = bagName, slot = slot, })
         end
     end
+
+    self.sendSources = newSendSources
 end
 
 -- Converts between ItemSlot and /itemnotify pack numbers
@@ -94,23 +96,24 @@ function vendor_inv:getNextItem()
 end
 
 function vendor_inv:getFilteredItems(filterFn)
-    self.items = {}
+    local newItems = {}
     for i = 23, 34, 1 do
         local slot = mq.TLO.Me.Inventory(i)
         if slot.Container() and slot.Container() > 0 then
             for j = 1, (slot.Container()), 1 do
                 if (slot.Item(j)() and not slot.Item(j).NoDrop() and not slot.Item(j).NoRent()) and
                     filterFn(slot.Item(j)) then
-                    table.insert(self.items, { Item = slot.Item(j), })
+                    table.insert(newItems, { Item = slot.Item(j), })
                 end
             end
         else
             if (slot() and not slot.NoDrop() and not slot.NoRent()) and
                 filterFn(slot) then
-                table.insert(self.items, { Item = slot, })
+                table.insert(newItems, { Item = slot, })
             end
         end
     end
+    self.items = newItems
 end
 
 ---@param index number

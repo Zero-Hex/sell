@@ -1,27 +1,28 @@
-local mq             = require('mq')
-local ImGui          = require('ImGui')
-local Icons          = require('mq.Icons')
+local mq                = require('mq')
+local ImGui             = require('ImGui')
+local Icons             = require('mq.Icons')
 
-local vendorInv      = require('vendor_inv')
-local actors         = require 'actors'
-local animItems      = mq.FindTextureAnimation("A_DragItem")
+local vendorInv         = require('vendor_inv')
+local actors            = require 'actors'
+local animItems         = mq.FindTextureAnimation("A_DragItem")
 
-local openGUI        = true
-local shouldDrawGUI  = false
+local openGUI           = true
+local shouldDrawGUI     = false
 
-local terminate      = false
+local terminate         = false
 
-local sourceIndex    = 1
-local sellAllJunk    = false
-local vendItem       = nil
-local showHidden     = false
+local sourceIndex       = 1
+local sellAllJunk       = false
+local vendItem          = nil
+local showHidden        = false
+local lastInventoryScan = 0
 
-local settings_file  = mq.configDir .. "/vendor.lua"
-local custom_sources = mq.configDir .. "/vendor_sources.lua"
+local settings_file     = mq.configDir .. "/vendor.lua"
+local custom_sources    = mq.configDir .. "/vendor_sources.lua"
 
-local settings       = {}
+local settings          = {}
 
-local Output         = function(msg, ...)
+local Output            = function(msg, ...)
     local formatted = msg
     if ... then
         formatted = string.format(msg, ...)
@@ -206,7 +207,7 @@ local function vendorGUI()
         ImGui.SetNextWindowSize(400, merchantWnd.Height())
 
         openGUI, shouldDrawGUI = ImGui.Begin('DerpleVend', openGUI,
-            bit32.bor(ImGuiWindowFlags.NoResize, ImGuiWindowFlags.NoDecoration, ImGuiWindowFlags.NoCollapse, ImGuiWindowFlags.NoScrollWithMouse))
+            bit32.bor(ImGuiWindowFlags.NoDecoration, ImGuiWindowFlags.NoCollapse, ImGuiWindowFlags.NoScrollWithMouse))
 
         ImGui.PushStyleColor(ImGuiCol.Text, 1, 1, 1, 1)
         local pressed
@@ -303,6 +304,12 @@ end)
 
 while not terminate do
     if mq.TLO.MacroQuest.GameState() ~= "INGAME" then return end
+
+    if mq.gettime() - lastInventoryScan > 1000 then
+        lastInventoryScan = mq.gettime()
+        vendorInv:createContainerInventory()
+        vendorInv:getItems(sourceIndex)
+    end
 
     if vendItem ~= nil then
         sellItem(vendItem)
