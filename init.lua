@@ -256,11 +256,18 @@ local function vendorGUI()
 
                 ImGui.SameLine()
 
-                if ImGui.SmallButton("Sell Junk") then
-                    sellAllJunk = true
+                if disabled then
+                    ImGui.EndDisabled()
                 end
-                Tooltip("Sell all junk items")
 
+                if ImGui.SmallButton(disabled and "Cancel Selling" or "Sell Junk") then
+                    sellAllJunk = not sellAllJunk
+                end
+                Tooltip(disabled and "Stop selling junk items" or "Sell all junk items")
+
+                if disabled then
+                    ImGui.BeginDisabled()
+                end
                 ImGui.SameLine()
 
                 if ImGui.SmallButton(showHidden and Icons.FA_EYE or Icons.FA_EYE_SLASH) then
@@ -350,6 +357,7 @@ while not terminate do
             end
 
             if not openGUI then return end
+            if not sellAllJunk then break end
         end
 
         Output("\amRefreshing inv...")
