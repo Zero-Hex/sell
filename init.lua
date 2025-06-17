@@ -16,6 +16,7 @@ local sellAllJunk       = false
 local vendItem          = nil
 local showHidden        = false
 local lastInventoryScan = 0
+local collapsed         = false
 
 local settings_file     = mq.configDir .. "/vendor.lua"
 local custom_sources    = mq.configDir .. "/vendor_sources.lua"
@@ -138,53 +139,55 @@ local function renderItems()
         ImGui.TableHeadersRow()
 
         for idx, item in ipairs(vendorInv.items) do
-            local itemStartString = item.Item.Name():sub(1, 1)
-            settings.Junk[itemStartString] = settings.Junk[itemStartString] or {}
-            settings.Hide[itemStartString] = settings.Hide[itemStartString] or {}
+            if item and item.Item() and item.Item.Name():len() > 0 then
+                local itemStartString = (item.Item.Name() or ""):sub(1, 1)
+                settings.Junk[itemStartString] = settings.Junk[itemStartString] or {}
+                settings.Hide[itemStartString] = settings.Hide[itemStartString] or {}
 
-            if not IsHidden(item.Item.Name()) or showHidden then
-                ImGui.PushID("#_itm_" .. tostring(idx))
-                local currentItem = item.Item
-                ImGui.TableNextColumn()
-                animItems:SetTextureCell((tonumber(currentItem.Icon()) or 500) - 500)
-                ImGui.DrawTextureAnimation(animItems, 20, 20)
-                ImGui.TableNextColumn()
-                if ImGui.Selectable(currentItem.Name(), false, 0) then
-                    currentItem.Inspect()
+                if not IsHidden(item.Item.Name()) or showHidden then
+                    ImGui.PushID("#_itm_" .. tostring(idx))
+                    local currentItem = item.Item
+                    ImGui.TableNextColumn()
+                    animItems:SetTextureCell((tonumber(currentItem.Icon()) or 500) - 500)
+                    ImGui.DrawTextureAnimation(animItems, 20, 20)
+                    ImGui.TableNextColumn()
+                    if ImGui.Selectable(currentItem.Name(), false, 0) then
+                        currentItem.Inspect()
+                    end
+                    ImGui.TableNextColumn()
+                    if IsJunk(item.Item.Name()) then
+                        ImGui.PushStyleColor(ImGuiCol.Text, 0.02, 0.8, 0.02, 1.0)
+                    else
+                        ImGui.PushStyleColor(ImGuiCol.Text, 0.8, 0.02, 0.02, 1.0)
+                    end
+                    ImGui.PushID("#_btn_jnk" .. tostring(idx))
+                    if ImGui.Selectable(Icons.FA_TRASH_O) then
+                        settings.Junk[itemStartString][item.Item.Name()] = not IsJunk(item.Item.Name())
+                        Output("\awToggled %s\aw for item: \at%s", IsJunk(item.Item.Name()) and "\arJunk" or "\agNot-Junk", item.Item.Name())
+                        SaveSettings()
+                    end
+                    ImGui.PopID()
+                    ImGui.PopStyleColor()
+                    ImGui.TableNextColumn()
+                    if ImGui.Selectable(Icons.MD_MONETIZATION_ON) then
+                        vendItem = item
+                    end
+                    ImGui.TableNextColumn()
+                    if not IsHidden(item.Item.Name()) then
+                        ImGui.PushStyleColor(ImGuiCol.Text, 0.02, 0.8, 0.02, 1.0)
+                    else
+                        ImGui.PushStyleColor(ImGuiCol.Text, 0.8, 0.02, 0.02, 1.0)
+                    end
+                    ImGui.PushID("#_btn_hide" .. tostring(idx))
+                    if ImGui.Selectable(IsHidden(item.Item.Name()) and Icons.FA_EYE or Icons.FA_EYE_SLASH) then
+                        settings.Hide[itemStartString][item.Item.Name()] = not IsHidden(item.Item.Name())
+                        Output("\awToggled %s\aw for item: \at%s", IsHidden(item.Item.Name()) and "\arHide" or "\agShow", item.Item.Name())
+                        SaveSettings()
+                    end
+                    ImGui.PopID()
+                    ImGui.PopStyleColor()
+                    ImGui.PopID()
                 end
-                ImGui.TableNextColumn()
-                if IsJunk(item.Item.Name()) then
-                    ImGui.PushStyleColor(ImGuiCol.Text, 0.02, 0.8, 0.02, 1.0)
-                else
-                    ImGui.PushStyleColor(ImGuiCol.Text, 0.8, 0.02, 0.02, 1.0)
-                end
-                ImGui.PushID("#_btn_jnk" .. tostring(idx))
-                if ImGui.Selectable(Icons.FA_TRASH_O) then
-                    settings.Junk[itemStartString][item.Item.Name()] = not IsJunk(item.Item.Name())
-                    Output("\awToggled %s\aw for item: \at%s", IsJunk(item.Item.Name()) and "\arJunk" or "\agNot-Junk", item.Item.Name())
-                    SaveSettings()
-                end
-                ImGui.PopID()
-                ImGui.PopStyleColor()
-                ImGui.TableNextColumn()
-                if ImGui.Selectable(Icons.MD_MONETIZATION_ON) then
-                    vendItem = item
-                end
-                ImGui.TableNextColumn()
-                if not IsHidden(item.Item.Name()) then
-                    ImGui.PushStyleColor(ImGuiCol.Text, 0.02, 0.8, 0.02, 1.0)
-                else
-                    ImGui.PushStyleColor(ImGuiCol.Text, 0.8, 0.02, 0.02, 1.0)
-                end
-                ImGui.PushID("#_btn_hide" .. tostring(idx))
-                if ImGui.Selectable(IsHidden(item.Item.Name()) and Icons.FA_EYE or Icons.FA_EYE_SLASH) then
-                    settings.Hide[itemStartString][item.Item.Name()] = not IsHidden(item.Item.Name())
-                    Output("\awToggled %s\aw for item: \at%s", IsHidden(item.Item.Name()) and "\arHide" or "\agShow", item.Item.Name())
-                    SaveSettings()
-                end
-                ImGui.PopID()
-                ImGui.PopStyleColor()
-                ImGui.PopID()
             end
         end
 
@@ -203,8 +206,13 @@ local function vendorGUI()
         end
 
         openLastFrame = true
+
         ImGui.SetNextWindowPos(merchantWnd.X() + merchantWnd.Width(), merchantWnd.Y())
-        ImGui.SetNextWindowSize(400, merchantWnd.Height())
+        if collapsed then
+            ImGui.SetNextWindowSize(40, 30)
+        else
+            ImGui.SetNextWindowSize(400, merchantWnd.Height())
+        end
 
         openGUI, shouldDrawGUI = ImGui.Begin('DerpleVend', openGUI,
             bit32.bor(ImGuiWindowFlags.NoDecoration, ImGuiWindowFlags.NoCollapse, ImGuiWindowFlags.NoScrollWithMouse))
@@ -218,43 +226,55 @@ local function vendorGUI()
                 ImGui.BeginDisabled()
                 disabled = true
             end
+            if collapsed then
+                pressed = ImGui.SmallButton(Icons.MD_CHEVRON_RIGHT)
+                if pressed then
+                    collapsed = false
+                end
+            else
+                ImGui.Text("Item Filters: ")
+                ImGui.SameLine()
+                sourceIndex, pressed = ImGui.Combo("##Select Bag", sourceIndex, function(idx) return vendorInv.sendSources[idx].name end, #vendorInv.sendSources)
+                if pressed then
+                    vendorInv:getItems(sourceIndex)
+                end
 
-            ImGui.Text("Item Filters: ")
-            ImGui.SameLine()
-            sourceIndex, pressed = ImGui.Combo("##Select Bag", sourceIndex, function(idx) return vendorInv.sendSources[idx].name end, #vendorInv.sendSources)
-            if pressed then
-                vendorInv:getItems(sourceIndex)
+                ImGui.SameLine()
+                pressed = ImGui.SmallButton(Icons.MD_CHEVRON_LEFT)
+                if pressed then
+                    collapsed = true
+                end
+
+                ImGui.Text(string.format("Filtered Items (%d):", #vendorInv.items or 0))
+
+                ImGui.SameLine()
+
+                if ImGui.SmallButton(Icons.MD_REFRESH) then
+                    vendorInv:createContainerInventory()
+                    vendorInv:getItems(sourceIndex)
+                end
+
+                ImGui.SameLine()
+
+                if ImGui.SmallButton("Sell Junk") then
+                    sellAllJunk = true
+                end
+                Tooltip("Sell all junk items")
+
+                ImGui.SameLine()
+
+                if ImGui.SmallButton(showHidden and Icons.FA_EYE or Icons.FA_EYE_SLASH) then
+                    showHidden = not showHidden
+                end
+                Tooltip("Toggle showing hidden items")
+
+                ImGui.NewLine()
+                ImGui.Separator()
+
+                ImGui.BeginChild("##VendorItems", -1, -1, ImGuiChildFlags.None, ImGuiWindowFlags.AlwaysVerticalScrollbar)
+                renderItems()
+                ImGui.EndChild()
             end
-
-            ImGui.Text(string.format("Filtered Items (%d):", #vendorInv.items or 0))
-
-            ImGui.SameLine()
-
-            if ImGui.SmallButton(Icons.MD_REFRESH) then
-                vendorInv:createContainerInventory()
-                vendorInv:getItems(sourceIndex)
-            end
-
-            ImGui.SameLine()
-
-            if ImGui.SmallButton("Sell Junk") then
-                sellAllJunk = true
-            end
-            Tooltip("Sell all junk items")
-
-            ImGui.SameLine()
-
-            if ImGui.SmallButton(showHidden and Icons.FA_EYE or Icons.FA_EYE_SLASH) then
-                showHidden = not showHidden
-            end
-            Tooltip("Toggle showing hidden items")
-
-            ImGui.NewLine()
-            ImGui.Separator()
-
-            ImGui.BeginChild("##VendorItems", -1, -1, ImGuiChildFlags.None, ImGuiWindowFlags.AlwaysVerticalScrollbar)
-            renderItems()
-            ImGui.EndChild()
 
             if disabled then
                 ImGui.EndDisabled()
