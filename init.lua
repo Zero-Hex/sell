@@ -75,9 +75,9 @@ local function sellItem(item)
     end
 
     local tabPage = mq.TLO.Window("MerchantWnd").Child("MW_MerchantSubWindows")
-    if tabPage.CurrentTab.Name() ~= "MW_PurchasePage" then
+    while tabPage.CurrentTab.Name() ~= "MW_PurchasePage" do
         tabPage.SetCurrentTab(1)
-        return
+        mq.delay(500)
     end
 
     if item and item.Item then
