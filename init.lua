@@ -58,7 +58,7 @@ local function Output(msg, ...)
     if ... then
         formatted = string.format(msg, ...)
     end
-    printf('\aw[' .. mq.TLO.Time() .. '] [\aoDerple\'s Vendor Helper\aw] ::\a-t %s', formatted)
+    printf('\aw[' .. mq.TLO.Time() .. '] [\aoDerple\'s Vendor Helper, brought to you by Zero-Hex\aw] ::\a-t %s', formatted)
 end
 
 function Tooltip(desc)
@@ -330,10 +330,8 @@ local function renderItems()
 end
 
 local function renderBagSellUI()
-    -- MODIFIED: Set the window size manually based on our new custom collapsed state.
     ImGui.SetNextWindowSize(bagSellUICollapsed and 30 or 700, bagSellUICollapsed and 30 or 400)
 
-    -- MODIFIED: Create the window with NoDecoration, just like the main GUI.
     local visible, new_open_state = ImGui.Begin('Bag Selling', showBagSellUI, bit32.bor(ImGuiWindowFlags.NoDecoration, ImGuiWindowFlags.NoCollapse))
     showBagSellUI = new_open_state
 
