@@ -44,6 +44,7 @@ local sellStep = 'idle'
 local stepDelay = 0
 
 -- UI State
+local bagSellUICollapsed = false
 local showBagSellUI = false
 local selectedBags = {}
 
@@ -329,8 +330,11 @@ local function renderItems()
 end
 
 local function renderBagSellUI()
-    ImGui.SetNextWindowSize(700, 400, ImGuiCond_FirstUseEver)
-    local visible, new_open_state = ImGui.Begin('Bag Selling', showBagSellUI)
+    -- MODIFIED: Set the window size manually based on our new custom collapsed state.
+    ImGui.SetNextWindowSize(bagSellUICollapsed and 30 or 700, bagSellUICollapsed and 30 or 400)
+
+    -- MODIFIED: Create the window with NoDecoration, just like the main GUI.
+    local visible, new_open_state = ImGui.Begin('Bag Selling', showBagSellUI, bit32.bor(ImGuiWindowFlags.NoDecoration, ImGuiWindowFlags.NoCollapse))
     showBagSellUI = new_open_state
 
     if not showBagSellUI then
@@ -338,7 +342,21 @@ local function renderBagSellUI()
         return
     end
 
-    if visible then
+    -- MODIFIED: The window's content is now determined by our custom collapsed state.
+    if bagSellUICollapsed then
+        -- When collapsed, only show an "Expand" button.
+        if ImGui.Button(">") then
+            bagSellUICollapsed = false
+        end
+    else
+        -- When expanded, show the "Collapse" button and all the content.
+        if ImGui.Button("<") then
+            bagSellUICollapsed = true
+        end
+        ImGui.SameLine()
+        ImGui.Text("Bag Selling")
+        ImGui.Separator()
+
         local disabled = isSelling
         if disabled then ImGui.BeginDisabled() end
 
@@ -346,6 +364,7 @@ local function renderBagSellUI()
         local _, avail_h = ImGui.GetContentRegionAvail()
         local child_height = avail_h - 60
 
+        -- == LEFT COLUMN: BAG SELECTION ==
         ImGui.BeginChild("##BagSelect", 150, child_height, true)
         ImGui.Text("Select Bags:")
         ImGui.Separator()
@@ -363,6 +382,7 @@ local function renderBagSellUI()
 
         ImGui.SameLine()
 
+        -- == RIGHT COLUMN: ITEM PREVIEW ==
         ImGui.BeginChild("##ItemPreview", 0, child_height, true)
         local aggregated_items = {}
         local item_map = {}
@@ -396,6 +416,7 @@ local function renderBagSellUI()
 
         if disabled then ImGui.EndDisabled() end
     end
+    
     ImGui.End()
 end
 
